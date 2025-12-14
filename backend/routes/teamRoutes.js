@@ -19,7 +19,6 @@ router.post("/register", async (req, res) => {
       college,
       githubProfile,
       teamSize,
-      problemPreference,
       members
     } = req.body;
 
@@ -27,45 +26,58 @@ router.post("/register", async (req, res) => {
       return res.status(400).json({ message: "Invalid payload" });
     }
 
-    // 1️⃣ Insert team
+    // Insert team (FIXED)
     const { data: team, error: teamError } = await supabase
       .from("teams_3")
       .insert({
         team_name: teamName,
-        team_size: teamSize,
-        problem_preference: problemPreference
+        team_size: teamSize
       })
       .select()
       .single();
 
     if (teamError) throw teamError;
 
-    // 2️⃣ Prepare participants
-    const participants = [
-      {
-        team_id: team.id,
-        name: teamLeaderName,
-        email,
-        phone: phoneNumber,
-        college,
-        github: githubProfile,
-        role: "leader"
-      }
-    ];
+    // Insert leader
+    await supabase.from("participants").insert({
+      team_id: team.id,
+      name: teamLeaderName,
+      email,
+      phone: phoneNumber,
+      college,
+      github: githubProfile,
+      role: "leader"
+    });
 
+    // Insert members
     if (Array.isArray(members)) {
-      members.forEach((m) => {
-        participants.push({
-          team_id: team.id,
-          name: m.name,
-          email: m.email,
-          phone: m.phone,
-          college: m.college,
-          year: m.year,
-          github: m.github,
-          role: "member"
-        });
-      });
+      const memberRows = members.map((m) => ({
+        team_id: team.id,
+        name: m.name,
+        email: m.email,
+        phone: m.phone,
+        college: m.college,
+        year: m.year,
+        github: m.github,
+        role: "member"
+      }));
+
+      await supabase.from("participants").insert(memberRows);
+    }
+
+    res.status(201).json({
+      message: "Team registered successfully",
+      teamId: team.id
+    });
+
+  } catch (err) {
+    console.error("Registration error:", err);
+    res.status(500).json({
+      message: err.message || "Server error"
+    });
+  }
+});
+
     }
 
     // 3️⃣ Insert participants
