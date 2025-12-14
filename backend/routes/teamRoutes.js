@@ -26,7 +26,7 @@ router.post("/register", async (req, res) => {
       return res.status(400).json({ message: "Invalid payload" });
     }
 
-    // Insert team (FIXED)
+    // Insert team
     const { data: team, error: teamError } = await supabase
       .from("teams_3")
       .insert({
@@ -65,6 +65,9 @@ router.post("/register", async (req, res) => {
       await supabase.from("participants").insert(memberRows);
     }
 
+    // Optional email
+    // await sendConfirmationEmail(email, req.body);
+
     res.status(201).json({
       message: "Team registered successfully",
       teamId: team.id
@@ -73,38 +76,6 @@ router.post("/register", async (req, res) => {
   } catch (err) {
     console.error("Registration error:", err);
     res.status(500).json({
-      message: err.message || "Server error"
-    });
-  }
-});
-
-    }
-
-    // 3️⃣ Insert participants
-    const { error: participantError } = await supabase
-      .from("participants")
-      .insert(participants);
-
-    if (participantError) {
-      if (participantError.code === "23505") {
-        return res.status(400).json({
-          message: "One or more participant emails are already registered"
-        });
-      }
-      throw participantError;
-    }
-
-    // 4️⃣ Send confirmation email
-    await sendConfirmationEmail(email, req.body);
-
-    return res.status(201).json({
-      message: "Team registered successfully",
-      teamId: team.id
-    });
-
-  } catch (err) {
-    console.error("Registration error:", err);
-    return res.status(500).json({
       message: err.message || "Server error"
     });
   }
