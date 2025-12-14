@@ -23,11 +23,11 @@ router.post("/register", async (req, res) => {
       members
     } = req.body;
 
-    if (!teamLeaderName || !email) {
+    if (!teamName || !teamLeaderName || !email) {
       return res.status(400).json({ message: "Invalid payload" });
     }
 
-    // Insert team
+    // 1️⃣ Insert team
     const { data: team, error: teamError } = await supabase
       .from("teams_3")
       .insert({
@@ -40,41 +40,35 @@ router.post("/register", async (req, res) => {
 
     if (teamError) throw teamError;
 
-    // Insert leader
-    await supabase.from("participants").insert({
-      team_id: team.id,
-      name: teamLeaderName,
-      email,
-      phone: phoneNumber,
-      college,
-      github: githubProfile,
-      role: "leader"
-    });
-
-    // Insert members
-    if (Array.isArray(members)) {
-      const memberRows = members.map((m) => ({
+    // 2️⃣ Prepare participants
+    const participants = [
+      {
         team_id: team.id,
-        name: m.name,
-        email: m.email,
-        phone: m.phone,
-        college: m.college,
-        year: m.year,
-        github: m.github,
-        role: "member"
-      }));
+        name: teamLeaderName,
+        email,
+        phone: phoneNumber,
+        college,
+        github: githubProfile,
+        role: "leader"
+      }
+    ];
 
-      await supabase.from("participants").insert(memberRows);
+    if (Array.isArray(members)) {
+      members.forEach((m) => {
+        participants.push({
+          team_id: team.id,
+          name: m.name,
+          email: m.email,
+          phone: m.phone,
+          college: m.college,
+          year: m.year,
+          github: m.github,
+          role: "member"
+        });
+      });
     }
 
-    res.status(201).json({ message: "Registration successful" });
-  } catch (err) {
-    console.error("Registration error:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-    // Insert participants
+    // 3️⃣ Insert participants
     const { error: participantError } = await supabase
       .from("participants")
       .insert(participants);
@@ -82,23 +76,24 @@ router.post("/register", async (req, res) => {
     if (participantError) {
       if (participantError.code === "23505") {
         return res.status(400).json({
-          message: "One or more participant emails are already registered",
+          message: "One or more participant emails are already registered"
         });
       }
       throw participantError;
     }
 
-    // Send  email
-    await sendConfirmationEmail(leader.email, req.body);
+    // 4️⃣ Send confirmation email
+    await sendConfirmationEmail(email, req.body);
 
     return res.status(201).json({
       message: "Team registered successfully",
-      teamId,
+      teamId: team.id
     });
+
   } catch (err) {
     console.error("Registration error:", err);
     return res.status(500).json({
-      message: err.message || "Server error",
+      message: err.message || "Server error"
     });
   }
 });
