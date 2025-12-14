@@ -66,7 +66,7 @@ router.post("/register", async (req, res) => {
     }
 
     // Optional email
-    // await sendConfirmationEmail(email, req.body);
+    await sendConfirmationEmail(email, req.body);
 
     res.status(201).json({
       message: "Team registered successfully",
