@@ -9,45 +9,70 @@ router.get("/test", (req, res) => {
 
 router.post("/register", async (req, res) => {
   try {
-    const { teamName, teamSize, leader, members } = req.body;
+    console.log("Incoming body:", req.body);
+
+    const {
+      teamName,
+      teamLeaderName,
+      email,
+      phoneNumber,
+      college,
+      githubProfile,
+      teamSize,
+      problemPreference,
+      members
+    } = req.body;
+
+    if (!teamLeaderName || !email) {
+      return res.status(400).json({ message: "Invalid payload" });
+    }
 
     // Insert team
-    const { data: teamData, error: teamError } = await supabase
+    const { data: team, error: teamError } = await supabase
       .from("teams_3")
       .insert({
         team_name: teamName,
         team_size: teamSize,
+        problem_preference: problemPreference
       })
       .select()
       .single();
 
     if (teamError) throw teamError;
 
-    const teamId = teamData.id;
+    // Insert leader
+    await supabase.from("participants").insert({
+      team_id: team.id,
+      name: teamLeaderName,
+      email,
+      phone: phoneNumber,
+      college,
+      github: githubProfile,
+      role: "leader"
+    });
 
-    // Build participants
-    const participants = [
-      {
-        team_id: teamId,
-        name: leader.name,
-        email: leader.email,
-        phone: leader.phone,
-        college: leader.college,
-        year: leader.year,
-        github: leader.github,
-        role: "leader",
-      },
-      ...members.map((m) => ({
-        team_id: teamId,
+    // Insert members
+    if (Array.isArray(members)) {
+      const memberRows = members.map((m) => ({
+        team_id: team.id,
         name: m.name,
         email: m.email,
         phone: m.phone,
         college: m.college,
         year: m.year,
         github: m.github,
-        role: "member",
-      })),
-    ];
+        role: "member"
+      }));
+
+      await supabase.from("participants").insert(memberRows);
+    }
+
+    res.status(201).json({ message: "Registration successful" });
+  } catch (err) {
+    console.error("Registration error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
     // Insert participants
     const { error: participantError } = await supabase
