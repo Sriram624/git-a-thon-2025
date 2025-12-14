@@ -66,11 +66,7 @@ router.post("/register", async (req, res) => {
     }
 
     // Optional email
-    await sendConfirmationEmail(email, {
-  name: teamLeaderName,
-  teamName,
-  members
-});
+   await sendConfirmationEmail(leader.email, teamName);;
 
 
     res.status(201).json({
