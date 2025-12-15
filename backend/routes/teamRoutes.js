@@ -66,7 +66,7 @@ router.post("/register", async (req, res) => {
     }
 
     // Optional email
-  await sendConfirmationEmail(email, {
+   sendConfirmationEmail(email, {
   teamName,
   teamSize,
   leader: {
@@ -78,7 +78,8 @@ router.post("/register", async (req, res) => {
     github: githubProfile
   },
   members
-});
+}).then(() => console.log("Email sent"))
+  .catch(err => console.error("Email failed:", err));
 
 
     res.status(201).json({
