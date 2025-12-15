@@ -52,7 +52,7 @@ async function sendConfirmationEmail(to, data) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: "GIT-A-THON <register@updates.example.com>",
+      from: "GIT-A-THON <onboarding@resend.dev>",
       to,
       subject: "GIT-A-THON 2025 – Registration Confirmed",
       html,
