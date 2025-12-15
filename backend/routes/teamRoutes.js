@@ -3,16 +3,10 @@ const router = express.Router();
 const supabase = require("../supabaseClient");
 const { sendConfirmationEmail } = require("../email");
 
-/**
- * Health check
- */
 router.get("/test", (req, res) => {
   res.send("Team routes are working!");
 });
 
-/**
- * Register team
- */
 router.post("/register", async (req, res) => {
   try {
     console.log("Incoming body:", req.body);
@@ -25,17 +19,14 @@ router.post("/register", async (req, res) => {
       college,
       githubProfile,
       teamSize,
-      members
+      members = []
     } = req.body;
 
-    // Basic validation
     if (!teamName || !teamLeaderName || !email) {
       return res.status(400).json({ message: "Invalid payload" });
     }
 
-    /**
-     * 1️⃣ Insert team
-     */
+    // 1️⃣ Insert team
     const { data: team, error: teamError } = await supabase
       .from("teams_3")
       .insert({
@@ -45,87 +36,53 @@ router.post("/register", async (req, res) => {
       .select()
       .single();
 
-    if (teamError) {
-      console.error("Team insert error:", teamError);
-      throw teamError;
-    }
+    if (teamError) throw teamError;
 
-    /**
-     * 2️⃣ Build participants array
-     */
-    const participants = [
-      {
+    // 2️⃣ Insert leader (FIX: year is required)
+    await supabase.from("participants").insert({
+      team_id: team.id,
+      name: teamLeaderName,
+      email,
+      phone: phoneNumber,
+      college,
+      year: "NA", // 👈 FIX for NOT NULL constraint
+      github: githubProfile,
+      role: "leader"
+    });
+
+    // 3️⃣ Insert members
+    if (members.length) {
+      const memberRows = members.map((m) => ({
         team_id: team.id,
-        name: teamLeaderName,
-        email: email,
-        phone: phoneNumber,
-        college: college,
-        year: "N/A",                 // ✅ REQUIRED (NOT NULL FIX)
-        github: githubProfile,
-        role: "leader"
-      }
-    ];
+        name: m.name,
+        email: m.email,
+        phone: m.phone,
+        college: m.college,
+        year: m.year || "NA",
+        github: m.github,
+        role: "member"
+      }));
 
-    if (Array.isArray(members)) {
-      members.forEach((m) => {
-        participants.push({
-          team_id: team.id,
-          name: m.name,
-          email: m.email,
-          phone: m.phone,
-          college: m.college,
-          year: m.year || "N/A",      // ✅ REQUIRED
-          github: m.github,
-          role: "member"
-        });
-      });
+      const { error } = await supabase
+        .from("participants")
+        .insert(memberRows);
+
+      if (error) throw error;
     }
 
-    /**
-     * 3️⃣ Insert participants
-     */
-    const { error: participantError } = await supabase
-      .from("participants")
-      .insert(participants);
+    // 4️⃣ Send email (NON-BLOCKING)
+    sendConfirmationEmail(email, req.body)
+      .then(() => console.log("Email sent"))
+      .catch(err => console.error("Email failed:", err.message));
 
-    if (participantError) {
-      console.error("Participant insert error:", participantError);
-      throw participantError;
-    }
-
-    /**
-     * 4️⃣ Respond immediately (DO NOT BLOCK)
-     */
-    res.status(201).json({
+    return res.status(201).json({
       message: "Team registered successfully",
       teamId: team.id
     });
 
-    /**
-     * 5️⃣ Send email asynchronously (SMTP may timeout on Render — OK)
-     */
-   const emailData = {
-  teamName: req.body.teamName,
-  teamSize: req.body.teamSize,
-  leader: {
-    name: req.body.teamLeaderName,
-    email: req.body.email,
-    phone: req.body.phoneNumber,
-    college: req.body.college,
-    year: "N/A",
-    github: req.body.githubProfile
-  },
-  members: req.body.members || []
-};
-
-sendConfirmationEmail(email, emailData)
-  .then(() => console.log("Email sent"))
-  .catch(err => console.error("Email failed:", err));
-
-
   } catch (err) {
     console.error("Registration error:", err);
-    res.status(500).json({
+    return res.status(500).json({
       message: err.message || "Server error"
     });
   }
