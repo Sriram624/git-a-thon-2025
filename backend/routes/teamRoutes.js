@@ -104,9 +104,24 @@ router.post("/register", async (req, res) => {
     /**
      * 5️⃣ Send email asynchronously (SMTP may timeout on Render — OK)
      */
-    sendConfirmationEmail(email, req.body)
-      .then(() => console.log("Email sent"))
-      .catch(err => console.error("Email failed:", err));
+   const emailData = {
+  teamName: req.body.teamName,
+  teamSize: req.body.teamSize,
+  leader: {
+    name: req.body.teamLeaderName,
+    email: req.body.email,
+    phone: req.body.phoneNumber,
+    college: req.body.college,
+    year: "N/A",
+    github: req.body.githubProfile
+  },
+  members: req.body.members || []
+};
+
+sendConfirmationEmail(email, emailData)
+  .then(() => console.log("Email sent"))
+  .catch(err => console.error("Email failed:", err));
+
 
   } catch (err) {
     console.error("Registration error:", err);
