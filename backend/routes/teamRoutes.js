@@ -3,10 +3,16 @@ const router = express.Router();
 const supabase = require("../supabaseClient");
 const { sendConfirmationEmail } = require("../email");
 
+/**
+ * Health check
+ */
 router.get("/test", (req, res) => {
   res.send("Team routes are working!");
 });
 
+/**
+ * Register team
+ */
 router.post("/register", async (req, res) => {
   try {
     console.log("Incoming body:", req.body);
@@ -22,11 +28,14 @@ router.post("/register", async (req, res) => {
       members
     } = req.body;
 
+    // Basic validation
     if (!teamName || !teamLeaderName || !email) {
       return res.status(400).json({ message: "Invalid payload" });
     }
 
-    // 1️⃣ Insert team
+    /**
+     * 1️⃣ Insert team
+     */
     const { data: team, error: teamError } = await supabase
       .from("teams_3")
       .insert({
@@ -41,14 +50,17 @@ router.post("/register", async (req, res) => {
       throw teamError;
     }
 
-    // 2️⃣ Prepare participants (leader + members)
+    /**
+     * 2️⃣ Build participants array
+     */
     const participants = [
       {
         team_id: team.id,
         name: teamLeaderName,
-        email,
+        email: email,
         phone: phoneNumber,
-        college,
+        college: college,
+        year: "N/A",                 // ✅ REQUIRED (NOT NULL FIX)
         github: githubProfile,
         role: "leader"
       }
@@ -57,20 +69,21 @@ router.post("/register", async (req, res) => {
     if (Array.isArray(members)) {
       members.forEach((m) => {
         participants.push({
-  team_id: team.id,
-  name: teamLeaderName,
-  email,
-  phone: phoneNumber,
-  college,
-  year: req.body.leader?.year || "N/A",
-  github: githubProfile,
-  role: "leader"
-});
-
+          team_id: team.id,
+          name: m.name,
+          email: m.email,
+          phone: m.phone,
+          college: m.college,
+          year: m.year || "N/A",      // ✅ REQUIRED
+          github: m.github,
+          role: "member"
+        });
       });
     }
 
-    // 3️⃣ Insert participants
+    /**
+     * 3️⃣ Insert participants
+     */
     const { error: participantError } = await supabase
       .from("participants")
       .insert(participants);
@@ -80,13 +93,17 @@ router.post("/register", async (req, res) => {
       throw participantError;
     }
 
-    // 4️⃣ Respond FIRST (critical)
+    /**
+     * 4️⃣ Respond immediately (DO NOT BLOCK)
+     */
     res.status(201).json({
       message: "Team registered successfully",
       teamId: team.id
     });
 
-    // 5️⃣ Send email ASYNC (do not block DB success)
+    /**
+     * 5️⃣ Send email asynchronously (SMTP may timeout on Render — OK)
+     */
     sendConfirmationEmail(email, req.body)
       .then(() => console.log("Email sent"))
       .catch(err => console.error("Email failed:", err));
