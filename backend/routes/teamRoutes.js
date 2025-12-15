@@ -57,15 +57,16 @@ router.post("/register", async (req, res) => {
     if (Array.isArray(members)) {
       members.forEach((m) => {
         participants.push({
-          team_id: team.id,
-          name: m.name,
-          email: m.email,
-          phone: m.phone,
-          college: m.college,
-          year: m.year,
-          github: m.github,
-          role: "member"
-        });
+  team_id: team.id,
+  name: teamLeaderName,
+  email,
+  phone: phoneNumber,
+  college,
+  year: req.body.leader?.year || "N/A",
+  github: githubProfile,
+  role: "leader"
+});
+
       });
     }
 
